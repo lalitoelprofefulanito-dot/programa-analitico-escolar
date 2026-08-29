@@ -1,0 +1,38 @@
+{
+  "principal": "index.html",
+  "required_explicit_local_refs": [
+    "${x.escudo}",
+    "${x.escudo}",
+    "${r.result}"
+  ],
+  "external_dependencies": [
+    "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs"
+  ],
+  "recommended_companions": [
+    "README.md",
+    "version.json",
+    "data/campos-formativos.json",
+    "data/fases.json",
+    "data/ejes-articuladores.json",
+    "data/contenidos.json",
+    "data/pdas.json",
+    "data/proyectos.json",
+    "data/proyecto-campo.json",
+    "data/proyecto-contenido.json",
+    "data/proyecto-eje.json",
+    "data/proyecto-pda.json",
+    "data/proyecto-proposito.json"
+  ],
+  "optional": [
+    "manifest.webmanifest",
+    "assets/img/",
+    "assets/icons/",
+    "docs/",
+    "reports/"
+  ],
+  "audit": {
+    "syntax_ok": true,
+    "reset_v3_present": true
+  }
+}
