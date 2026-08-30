@@ -511,10 +511,10 @@ function save(){state.updatedAt=new Date().toISOString();try{localStorage.setIte
 /* ============================================================
    NAVEGACIÓN
    ============================================================ */
-const screens=[['inicio','Inicio'],['realidad','1. Lectura de la realidad'],['contexto','2. Contextualización'],['matriz','3. Matriz curricular'],['importar','Importar Programa Analítico'],['mapaescritura','5. Mapa de escritura'],['auditoria','6. Auditoría'],['articulacion','6. Articulación escolar'],['registro','7. Decisiones del CTE'],['mensual','8. Construcción por mes'],['construccion','9. Construcción completa'],['integracion','10. Integración con plantilla'],['auditoriav29','11. Auditoría previa a escritura'],['exportacion','12. Vista de cambios / Exportación'],['articulacion','13. Articulación y progresión'],['cohesion','12. Cohesión y progresión'],['arquitectura','13. Arquitectura institucional'],['salida','14. Programa Analítico']];
+const screens=[['inicio','Inicio'],['realidad','1. Lectura de la realidad'],['contexto','2. Contextualización'],['matriz','3. Matriz curricular'],['importar','Importar Programa Analítico'],['mapaescritura','5. Mapa de escritura'],['auditoria','6. Auditoría'],['articulacion','6. Articulación escolar'],['sugerencias','6b. Sugerencias curriculares'],['registro','7. Decisiones del CTE'],['mensual','8. Construcción por mes'],['construccion','9. Construcción completa'],['integracion','10. Integración con plantilla'],['auditoriav29','11. Auditoría previa a escritura'],['exportacion','12. Vista de cambios / Exportación'],['articulacion','13. Articulación y progresión'],['cohesion','12. Cohesión y progresión'],['arquitectura','13. Arquitectura institucional'],['salida','14. Programa Analítico']];
 function nav(){ $('#nav').innerHTML=screens.map(([id,n])=>`<button class="${state.screen===id?'active':''}" onclick="go('${id}')">${n}</button>`).join('') }
 function go(s){state.screen=s;save();render()}
-function render(){const paDispatch={trazabilidad:pa413TraceabilityPanel,inicio,realidad,contexto,matriz,matrizEditar,importar,auditoria,articulacion,registro,mensual,construccion:construccionCompleta,integracion:integracionPlantillaV28,auditoriav29:auditoriaPreEscrituraV29,exportacion:exportacionControladaV30,articulacion,cohesion,arquitectura,salida};if(typeof paDispatch[state.screen]!=='function'){state.screen='inicio';try{save()}catch(e){}}nav();$('#app').innerHTML=paDispatch[state.screen]();bind()}
+function render(){const paDispatch={trazabilidad:pa413TraceabilityPanel,inicio,realidad,contexto,matriz,matrizEditar,importar,auditoria,articulacion,sugerencias:sugerenciasCurriculares,registro,mensual,construccion:construccionCompleta,integracion:integracionPlantillaV28,auditoriav29:auditoriaPreEscrituraV29,exportacion:exportacionControladaV30,articulacion,cohesion,arquitectura,salida};if(typeof paDispatch[state.screen]!=='function'){state.screen='inicio';try{save()}catch(e){}}nav();$('#app').innerHTML=paDispatch[state.screen]();bind()}
 
 function migrationBanner(){
   if(!migrationNotice) return '';
@@ -1166,34 +1166,38 @@ function saveArquitectura(){
   catch(e){$('#archStatus').textContent='No fue posible guardar localmente. Este módulo es opcional y no afecta el resto de la aplicación.'}
 }
 
-
-
 /* v3.0 — Motor de sugerencias curriculares.
-   Diseño: consulta repositorio externo cuando está disponible; nunca inventa referentes.
-   Si el repositorio no responde, muestra estado y permite continuar manualmente. */
+   Regla central: sugerir no es decidir; no se inventan referentes.
+   CORRECCIÓN: la versión original intentaba consultar un repositorio en
+   window.CURRICULUM_BASE_URL / window.REPOSITORY_URL / window.REPO_URL,
+   variables que nunca existen (la URL real del repositorio es una const
+   local, CURRICULUM_BASE_URL, no una propiedad de window), así que esta
+   búsqueda jamás encontraba nada y la función siempre fallaba en silencio.
+   Ahora reutiliza directamente el currículo que la aplicación ya carga al
+   iniciar (contents/gc/idx y window.PA_CURRICULUM), sin duplicar descargas
+   ni depender de configuración que no existe. */
 window.PA_V22 = window.PA_V22 || {
   cache: null,
   async loadRepository(){
-    const urls = [];
-    // Reutiliza configuraciones existentes de la aplicación si están disponibles.
-    if (window.CURRICULUM_BASE_URL) urls.push(window.CURRICULUM_BASE_URL);
-    if (window.REPOSITORY_URL) urls.push(window.REPOSITORY_URL);
-    if (window.REPO_URL) urls.push(window.REPO_URL);
-    if (!urls.length) {
-      const links=[...document.querySelectorAll('a[href]')].map(a=>a.href)
-        .filter(u=>/github|json|repo|curriculum|pda/i.test(u));
-      urls.push(...links);
+    if(!Array.isArray(contents) || !contents.length || !Array.isArray(gc) || !gc.length){
+      return {ok:false,message:'El repositorio curricular aún no está cargado. Ve a "Inicio" o espera unos segundos y vuelve a intentarlo; si persiste, usa "Actualizar repositorio" en la Matriz curricular.'};
     }
-    for(const url of urls){
+    this.cache = gc.map(r=>{
+      const c=idx.content.get(r.contenido_id);
+      const g=idx.grade.get(r.grado_id);
+      const f=idx.field.get(r.campo_formativo_id);
+      let pdaTexts=[];
       try{
-        const r=await fetch(url,{cache:'no-store'});
-        if(!r.ok) continue;
-        const data=await r.json();
-        this.cache=Array.isArray(data)?data:(data.registros||data.records||data.data||[]);
-        return {ok:true,url,count:this.cache.length};
+        pdaTexts=(window.PA_CURRICULUM?.pdasFor?.(r.contenido_id,r.grado_id,r.campo_formativo_id)||[])
+          .map(p=>p.pda||'').filter(Boolean);
       }catch(e){}
-    }
-    return {ok:false,message:'No fue posible consultar el repositorio externo desde el navegador.'};
+      return {
+        contenido_id:r.contenido_id, grado_id:r.grado_id, campo_id:r.campo_formativo_id,
+        contenido:c?.texto||'', fase:g?idxGradeFase(g.fase_id):'', fase_id:g?.fase_id||'',
+        grado:g?.grado||'', campo:f?.nombre||'', pda:pdaTexts.join(' | ')
+      };
+    }).filter(x=>x.contenido);
+    return {ok:true,url:'repositorio curricular ya cargado en la aplicación',count:this.cache.length};
   },
   text(x){return String(x??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');},
   score(item, ctx){
@@ -1230,10 +1234,10 @@ async function runV22SuggestionsLegacy(){
   const box=document.getElementById('pa-v22-results');
   const status=document.getElementById('pa-v22-status');
   if(!box||!status)return;
-  status.textContent='Consultando repositorio externo…';
+  status.textContent='Consultando repositorio curricular…';
   const loaded=await window.PA_V22.loadRepository();
   if(!loaded.ok){
-    status.innerHTML='<b>No se pudo consultar el repositorio externo.</b> La aplicación no inventará contenidos ni PDA. Verifica la conexión/configuración del repositorio.';
+    status.innerHTML='<b>No se pudo consultar el repositorio.</b> '+esc(loaded.message||'')+' La aplicación no inventará contenidos ni PDA.';
     box.innerHTML='<p>Sin sugerencias hasta disponer de datos reales del repositorio.</p>';
     return;
   }
@@ -1241,13 +1245,11 @@ async function runV22SuggestionsLegacy(){
   const months=state.months||[];
   const m=months.find(x=>x.mes===(window.paMonthlySelected||months[0]?.mes))||months[0];
   let priorities='';
-  try{priorities=localStorage.getItem('pa_school_architecture_v20')||''}catch(e){}
-  let p='';
-  try{p=JSON.parse(priorities).prioridades||''}catch(e){}
-  const ctx={situacion:m?.situacion||'',valor:m?.valor||'',prioridades:p};
+  try{priorities=JSON.parse(localStorage.getItem('pa_architecture_v20')||'{}').prioridades||''}catch(e){}
+  const ctx={situacion:m?.situacion||'',valor:m?.valor||'',prioridades:priorities};
   const suggestions=window.PA_V22.suggest(ctx);
 
-  status.innerHTML=`<b>Repositorio consultado.</b> ${loaded.count} registros disponibles. Sugerencias calculadas para <b>${esc(m?.mes||'')}</b>.`;
+  status.innerHTML=`<b>Repositorio consultado.</b> ${loaded.count} referentes disponibles. Sugerencias calculadas para <b>${esc(m?.mes||'')}</b>.`;
   if(!suggestions.length){
     box.innerHTML='<p>No se encontraron coincidencias suficientes. Esto no significa que no existan referentes pertinentes; el CTE puede revisar la matriz curricular directamente.</p>';
     return;
@@ -1267,13 +1269,15 @@ async function runV22SuggestionsLegacy(){
 function paV22Choose(i){
   const x=window.PA_V22.current?.[i];
   if(!x)return;
-  const clean={fase:x.fase||x.fase_id||'',campo:x.campo||x.campo_formativo||'',contenido:x.contenido||'',pda:x.pda||x.PDA||'',ejes:x.ejes||x.eje_articulador||'',mes:window.paMonthlySelected||''};
+  const clean={fase:x.fase||x.fase_id||'',campo:x.campo||x.campo_formativo||'',contenido:x.contenido||'',pda:x.pda||x.PDA||'',ejes:x.ejes||x.eje_articulador||'',mes:window.paMonthlySelected||'',__explain:'Coincidencia por palabras clave con la situación del mes: '+(x.__hits||[]).join(', ')};
   window.PA_V22.selected=clean;
+  window.PA_V25_CURRENT=clean;
   const b=document.getElementById('pa-v22-choice');
   if(b)b.innerHTML=`<div class="notice cteBox"><b>Referente seleccionado para revisión.</b><br>
     Fase: ${esc(clean.fase)}<br>Campo: ${esc(clean.campo)}<br>Contenido: ${esc(clean.contenido)}<br>PDA: ${esc(clean.pda)}
     <br><br>Ahora corresponde al CTE decidir si lo incorpora, modifica o descarta.
-    <br><button type="button" class="btn primary" onclick="go('registro')">Registrar decisión del CTE</button></div>`;
+    <br><button type="button" class="btn primary" onclick="paV25UseSuggestion()">Usar esta sugerencia y continuar →</button>
+    <button type="button" class="btn" onclick="go('registro')">Ir a Decisiones del CTE sin prellenar</button></div>`;
 }
 
 
@@ -1325,14 +1329,14 @@ async function runV23Pedagogical(){
   if(!status||!box)return;
   status.textContent='Analizando pertinencia curricular…';
 
-  // Reuse the v3.0 repository loader.
   if(!window.PA_V22 || !window.PA_V22.loadRepository){
     status.textContent='El motor del repositorio no está disponible.';
     return;
   }
   const loaded=await window.PA_V22.loadRepository();
   if(!loaded.ok){
-    status.innerHTML='<b>Repositorio no disponible.</b> No se generan sugerencias inventadas.';
+    status.innerHTML='<b>Repositorio no disponible.</b> '+esc(loaded.message||'')+' No se generan sugerencias inventadas.';
+    box.innerHTML='';
     return;
   }
 
@@ -1350,7 +1354,7 @@ async function runV23Pedagogical(){
   }).filter(x=>x.__ped.total>=4)
     .sort((a,b)=>b.__ped.total-a.__ped.total).slice(0,25);
 
-  status.innerHTML=`<b>Análisis pedagógico realizado.</b> ${loaded.count} registros de fuente. Se muestran ${candidates.length} referentes para revisión.`;
+  status.innerHTML=`<b>Análisis pedagógico realizado.</b> ${loaded.count} referentes de fuente. Se muestran ${candidates.length} para revisión.`;
   if(!candidates.length){
     box.innerHTML='<p>No hay evidencia suficiente para proponer referentes. El CTE puede trabajar desde la matriz curricular sin que esto constituya una ausencia curricular.</p>';
     return;
@@ -1374,15 +1378,32 @@ async function runV23Pedagogical(){
 function paV23Review(i){
   const x=window.PA_V23?.candidates?.[i]; if(!x)return;
   const choice=document.getElementById('pa-v22-choice'); if(!choice)return;
+  window.PA_V25_CURRENT={fase:x.fase||x.fase_id||'',campo:x.campo||x.campo_formativo||'',contenido:x.contenido||'',pda:x.pda||x.PDA||'',ejes:x.ejes||x.eje_articulador||'',mes:window.paMonthlySelected||'',__explain:x.__explain,__nivel:x.__ped?.level||''};
   choice.innerHTML=`<div class="notice cteBox"><b>Revisión para el CTE</b>
   <p><b>Nivel de relación:</b> ${esc(x.__ped.level)}</p>
   <p><b>Por qué aparece:</b> ${esc(x.__explain)}</p>
   <p><b>Contenido:</b> ${esc(x.contenido||'')}</p>
   <p><b>PDA:</b> ${esc(x.pda||x.PDA||'')}</p>
   <p><b>Decisión:</b> este referente debe ser <b>incorporado, modificado o descartado</b> por el CTE.</p>
-  <button type="button" class="btn primary" onclick="go('registro')">Registrar decisión</button></div>`;
+  <button type="button" class="btn primary" onclick="paV25UseSuggestion()">Usar esta sugerencia y continuar →</button>
+  <button type="button" class="btn" onclick="go('registro')">Ir a Decisiones del CTE sin prellenar</button></div>`;
 }
-
+function paV25UseSuggestion(){
+  const x=window.PA_V25_CURRENT;
+  if(!x){alert('Primero elige "Revisar" sobre una sugerencia.');return;}
+  go('registro');
+  setTimeout(()=>{
+    if($('#cteMes'))$('#cteMes').value=x.mes||'';
+    if($('#cteFase'))$('#cteFase').value=x.fase||'';
+    if($('#cteGrado'))$('#cteGrado').value=x.grado||'';
+    if($('#cteCampo'))$('#cteCampo').value=x.campo||'';
+    if($('#cteContenido'))$('#cteContenido').value=x.contenido||'';
+    if($('#ctePDA'))$('#ctePDA').value=x.pda||'';
+    if($('#cteEjes'))$('#cteEjes').value=x.ejes||'';
+    if($('#cteFuente'))$('#cteFuente').value='Sugerencia del sistema';
+    if($('#cteSugerencia'))$('#cteSugerencia').value=(x.__nivel?('Nivel: '+x.__nivel+'. '):'')+(x.__explain||'');
+  },50);
+}
 
 /* v3.0 — Motor de articulación y progresión.
    Analiza relaciones entre meses y fases. No dicta decisiones curriculares. */
@@ -1422,6 +1443,47 @@ function paV24Analyze(){
   }
   return {rows,agreed,repeated,phaseMap,monthLinks};
 }
+
+/* ============================================================
+   PANTALLA: SUGERENCIAS CURRICULARES (v3.0/v23) — conecta el motor
+   anterior con la interfaz. Antes existía pero no estaba enlazado a
+   ningún botón del menú, por lo que nunca se podía usar.
+   ============================================================ */
+function sugerenciasCurriculares(){
+  const months=state.months||[];
+  const mSel=window.paMonthlySelected||months[0]?.mes||'';
+  const analysis=paV24Analyze();
+  return `<div class="card"><h2>Sugerencias curriculares</h2>
+  <div class="notice cteBox"><b>Principio rector:</b> el sistema propone, nunca decide. Cada sugerencia debe pasar por "Decisiones del CTE" antes de convertirse en un acuerdo.</div>
+  <div class="field"><label>Mes de referencia</label>
+    <select id="paSugMes" onchange="window.paMonthlySelected=this.value;save();render()">
+      ${months.map(m=>`<option ${m.mes===mSel?'selected':''}>${esc(m.mes)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn primary" onclick="runV23Pedagogical()">Analizar con motor pedagógico (recomendado)</button>
+    <button type="button" class="btn" onclick="runV22SuggestionsLegacy()">Buscar coincidencias simples (legado)</button>
+  </div>
+  <div id="pa-v22-status" class="muted" style="margin-top:10px"></div>
+  <div id="pa-v22-results"></div>
+  <div id="pa-v22-choice"></div>
+
+  <h3>Articulación entre meses</h3>
+  <div class="notice currBox">Contenidos acordados que se repiten en más de un mes: ${analysis.repeated.length}. Esto no es un error; sirve para valorar si conviene profundizar o evitar duplicar el mismo referente sin intención.</div>
+  ${analysis.repeated.length?`<table><thead><tr><th>Contenido</th><th>Meses en que aparece</th></tr></thead><tbody>${
+    analysis.repeated.map(([key,rs])=>`<tr><td>${esc(rs[0].contenido||key)}</td><td>${esc(rs.map(r=>r.mes).join(', '))}</td></tr>`).join('')
+  }</tbody></table>`:'<p class="muted">Sin repeticiones registradas todavía.</p>'}
+  <h4>Continuidad entre meses consecutivos</h4>
+  ${analysis.monthLinks.length?`<table><thead><tr><th>De</th><th>A</th><th>Contenidos que continúan</th></tr></thead><tbody>${
+    analysis.monthLinks.map(l=>`<tr><td>${esc(l.a)}</td><td>${esc(l.b)}</td><td>${l.common.length?esc(l.common.length+' contenido(s) en común'):'<span class="muted">Sin continuidad detectada</span>'}</td></tr>`).join('')
+  }</tbody></table>`:'<p class="muted">Se necesitan al menos dos meses con decisiones acordadas.</p>'}
+  </div>`;
+}
+
+
+
+
+
 
 
 function mensual(){
@@ -1565,6 +1627,7 @@ function decisionesCTE(){
     </div>
     <div class="notice currBox"><b>Pospuestas:</b> ${postponed}. Una decisión pospuesta sigue abierta y no debe interpretarse como acuerdo.</div>
 
+    <div class="actions"><button type="button" class="btn" onclick="go('sugerencias')">Ver sugerencias curriculares para este mes →</button></div>
     <h3>Registrar decisión</h3>
     <div class="grid">
       <div class="field"><label>Mes</label><select id="cteMes">${(state.months||[]).map(m=>`<option>${esc(m.mes)}</option>`).join('')}</select></div>
@@ -1610,26 +1673,6 @@ function paDeleteDecision(i){
   const all=window.PA_CTE_DECISIONS.load();
   all.splice(i,1); window.PA_CTE_DECISIONS.save(all); render();
 }
-function paV25UseSuggestion(){
-  const x=window.PA_V23?.candidates?.[window.paV23CurrentIndex||0];
-  if(!x)return;
-  const map={mes:window.paMonthlySelected||'',fase:x.fase||x.fase_id||'',grado:x.grado||x.grado_id||'',
-    campo:x.campo||x.campo_formativo||'',contenido:x.contenido||'',pda:x.pda||x.PDA||'',
-    ejes:x.ejes||x.eje_articulador||'',observaciones:x.__explain||''};
-  go('registro');
-  setTimeout(()=>{
-    if($('#cteMes'))$('#cteMes').value=map.mes;
-    if($('#cteFase'))$('#cteFase').value=map.fase;
-    if($('#cteGrado'))$('#cteGrado').value=map.grado;
-    if($('#cteCampo'))$('#cteCampo').value=map.campo;
-    if($('#cteContenido'))$('#cteContenido').value=map.contenido;
-    if($('#ctePDA'))$('#ctePDA').value=map.pda;
-    if($('#cteEjes'))$('#cteEjes').value=map.ejes;
-    if($('#cteObs'))$('#cteObs').value=map.observaciones;
-  },50);
-}
-
-
 /* v3.0 — Construcción completa por mes.
    Completa el expediente de trabajo a partir de decisiones CTE.
    Los campos permanecen editables y nunca se presentan como acuerdos si no fueron registrados. */
@@ -2000,7 +2043,7 @@ async function resetAll(){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
-<script type="module">import * as pdfjsLibModule from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs'; window.pdfjsLib=pdfjsLibModule;</script>
+<script type="module">import * as pdfjsLibModule from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs'; window.pdfjsLib=pdfjsLibModule; window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';</script>
 </div>
 <script id="pa32PortalLogic">
 const PA32_KEY='pa_school_profile_v32';
