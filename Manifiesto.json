@@ -1,38 +1,156 @@
 {
   "principal": "index.html",
+  "version": "4.36.1",
   "required_explicit_local_refs": [
-    "${x.escudo}",
     "${x.escudo}",
     "${r.result}"
   ],
   "external_dependencies": [
     "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs"
+    "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs",
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs"
   ],
+  "curriculum_source": {
+    "canonical": "https://raw.githubusercontent.com/lalitoelprofefulanito-dot/curriculo-primaria-nem/main/",
+    "complementary": "https://raw.githubusercontent.com/lalitoelprofefulanito-dot/Ecosistema-Curricular-Digital-de-Educaci-n-Primaria-de-la-NEM/main/",
+    "essential_files": [
+      "version.json",
+      "grados.json",
+      "campos-formativos.json",
+      "contenidos.json",
+      "pdas.json"
+    ],
+    "optional_files": [
+      "fases.json",
+      "ejes-articuladores.json",
+      "proyectos.json",
+      "grado-campo-contenido.json",
+      "contenido-pda.json",
+      "proyecto-eje.json",
+      "proyecto-campo.json",
+      "proyecto-contenido.json",
+      "proyecto-pda.json"
+    ]
+  },
   "recommended_companions": [
-    "README.md",
-    "version.json",
-    "data/campos-formativos.json",
-    "data/fases.json",
-    "data/ejes-articuladores.json",
-    "data/contenidos.json",
-    "data/pdas.json",
-    "data/proyectos.json",
-    "data/proyecto-campo.json",
-    "data/proyecto-contenido.json",
-    "data/proyecto-eje.json",
-    "data/proyecto-pda.json",
-    "data/proyecto-proposito.json"
+    "README.md"
   ],
   "optional": [
     "manifest.webmanifest",
-    "assets/img/",
-    "assets/icons/",
     "docs/",
     "reports/"
   ],
+  "local_storage_prefixes": [
+    "pa_",
+    "pa46_",
+    "nexo_"
+  ],
+  "indexeddb_databases": [
+    "pa_app_v14_templates",
+    "pa_planning_v14_templates",
+    "pa_app_v08_templates",
+    "pa_curriculum_local_v43",
+    "pa_ecosistema_nem_v46"
+  ],
   "audit": {
+    "date": "2026-09-05",
     "syntax_ok": true,
-    "reset_v3_present": true
+    "script_blocks": 15,
+    "runtime_errors_on_boot": 0,
+    "export_escuela_meses_escritos": "11/11",
+    "export_escuela_clonaciones": 0,
+    "export_planeacion_marcadores_sin_resolver": 0,
+    "import_documento_real_meses_reconocidos": "11/11",
+    "reset_scoped_to_own_origin_keys": true,
+    "reset_preserva_plantillas": true
+  },
+  "modules": [
+    "nexo-01-nucleo-escuela",
+    "nexo-02-portal-y-grupo-base",
+    "nexo-03-planeacion-didactica",
+    "nexo-04-portal-navegacion",
+    "nexo-05-planeacion-exportacion",
+    "nexo-06-repositorio-curricular",
+    "nexo-07-grupo-y-ecosistema",
+    "nexo-08-ecosistema-y-autoria",
+    "nexo-09-grupo-sesion-y-navegacion",
+    "nexo-10-capas-de-escuela",
+    "nexo-11-borrado-fuentes-y-version",
+    "nexo-12-paridad-tres-etapas",
+    "nexo-12a-plantillas-datos",
+    "nexo-12b-plantillas-embebidas",
+    "nexo-13-arranque"
+  ],
+  "maintenance_rule": "Toda capa nueva se agrega antes del módulo nexo-13-arranque, nunca después.",
+  "intentional_override_chains": {
+    "paReturnPortal": "02 -> sustituye 04 -> envuelve 09",
+    "pa43Clear": "06 -> envuelve 11",
+    "paEnterGroup": "02 -> envuelve 09",
+    "matrizEditar": "01 -> envuelve 07",
+    "pa44Suggestions": "07 -> envuelve 07",
+    "curriculumNotice": "06 -> envuelve 07"
+  },
+  "local_storage_keys": {
+    "escuela": "pa_app_v14",
+    "grupo": "pa_group_v49",
+    "planeacion": "pa_planning_v36",
+    "perfil_escuela": "pa_school_profile_v32",
+    "cache_curricular": "pa_curriculum_cache_v43"
+  },
+  "word_templates_embedded": true,
+  "word_templates_note": "Las dos plantillas .docx viajan incrustadas en base64 dentro de index.html (modulo nexo-12a) y se siembran solas en IndexedDB al arrancar y despues de cada Restablecer (modulo nexo-12b). plantilla-programa-analitico.docx sirve a Escuela y a Grupo; plantilla-planeacion-didactica.docx sirve a Planeacion. Cada etapa tiene su propio almacen.",
+  "universal_import": {
+    "formats": [
+      ".docx",
+      ".pdf",
+      ".txt",
+      ".json"
+    ],
+    "stages": [
+      "escuela",
+      "grupo",
+      "planeacion"
+    ],
+    "rule": "no sobrescribe lo capturado salvo peticion explicita; no infiere lo que no reconoce",
+    "calibrated_against": [
+      "plantilla-programa-analitico.docx",
+      "plantilla-planeacion-didactica.docx",
+      "PROGRAMA_ANALITICO_ESCUELA_2026-2027 (documento real de la escuela)",
+      "Modelo de planeacion (documento real de la escuela)"
+    ],
+    "reads": [
+      "etapa 1 por etiquetas",
+      "panorama mensual (admite celdas combinadas)",
+      "matriz curricular por mes",
+      "bloque de cierre mensual (codiseno, orientaciones, evaluacion)",
+      "tablas etiqueta-valor de la planeacion"
+    ]
+  },
+  "word_templates": {
+    "programa_analitico": {
+      "archivo": "plantilla-programa-analitico.docx",
+      "etapas": [
+        "escuela",
+        "grupo"
+      ],
+      "almacen": "pa_app_v14_templates",
+      "mecanismo": "reconocimiento de estructura de tablas",
+      "tablas": {
+        "contexto": 1,
+        "panorama_mensual": 1,
+        "matriz": 11,
+        "cierre": 11
+      }
+    },
+    "planeacion_didactica": {
+      "archivo": "plantilla-planeacion-didactica.docx",
+      "etapas": [
+        "planeacion"
+      ],
+      "almacen": "pa_planning_v14_templates",
+      "mecanismo": "sustitucion de marcadores {{CAMPO}}",
+      "marcadores": 65
+    }
   }
 }
